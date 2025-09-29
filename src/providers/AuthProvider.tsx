@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 
 type SessionType = Session | null;
@@ -19,6 +20,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SessionType>(null);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
@@ -26,10 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session as Session | null);
+      setInitializing(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session as Session | null);
+      setInitializing(false);
     });
 
     return () => {
@@ -37,6 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // Client-side redirect when unauthenticated and configured
+  useEffect(() => {
+    if (!initializing && !session) {
+      const path = "/login";
+      const current =
+        typeof window !== "undefined" ? window.location.pathname : "/";
+      router.push(`${path}?redirectedFrom=${encodeURIComponent(current)}`);
+    }
+  }, [initializing, session, router]);
 
   const signInWithEmail = async (email: string) => {
     setLoading(true);
