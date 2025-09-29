@@ -1,4 +1,4 @@
-# Photosintesys
+# photosynthesis
 
 App móvil-first en Next.js para identificar plantas con IA (OpenAI Vision) y mostrar cuidados.
 

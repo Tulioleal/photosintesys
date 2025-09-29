@@ -1,5 +1,5 @@
 {
-  "name": "photosintesys",
+  "name": "photosynthesis",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,6 +11,9 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@langchain/openai": "^0.6.14",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.58.0",
     "langchain": "^0.3.35",
     "next": "15.5.4",
     "openai": "^5.23.1",

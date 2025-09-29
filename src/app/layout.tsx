@@ -16,7 +16,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Photosintesys — Plant Identifier",
+  title: "Photosynthesis — Plant Identifier",
   description:
     "Mobile-first app to recognize plants and learn how to care for them.",
 };
