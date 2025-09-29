@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import Link from "next/link";
 import {
   CameraIcon,
   MagnifyingGlassIcon,
@@ -7,6 +8,7 @@ import {
   BellIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/solid";
+import { useAuth } from "@/providers/AuthProvider";
 
 type IdentifyResult = {
   name: string;
@@ -22,6 +24,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IdentifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { session } = useAuth();
 
   const onPickImage = () => fileRef.current?.click();
 
@@ -51,23 +54,42 @@ export default function Home() {
   return (
     <div className="min-h-dvh grid grid-rows-[auto_1fr_auto] bg-white">
       {/* Top bar */}
-      <header className="px-5 pt-8 pb-4 flex items-center gap-3">
-        <div className="size-8 rounded-full bg-[var(--color-primary-100)]" />
+      <header className="px-5 pt-8 pb-4 flex items-center gap-3 justify-between">
+        <div className="flex items-center gap-3">
+          <div className="size-8 rounded-full bg-[var(--color-primary-100)]" />
+          <div>
+            <h1 className="font-display text-2xl text-[var(--color-primary-600)]">
+              Photosintesys
+            </h1>
+            <p className="text-xs text-neutral-500">
+              Identify and care for your plants
+            </p>
+          </div>
+        </div>
         <div>
-          <h1 className="font-display text-2xl text-[var(--color-primary-600)]">
-            Photosintesys
-          </h1>
-          <p className="text-xs text-neutral-500">
-            Identify and care for your plants
-          </p>
+          {session ? (
+            <Link
+              href="/login"
+              className="text-sm text-[var(--color-primary-700)]"
+            >
+              Account
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="text-sm text-[var(--color-primary-700)]"
+            >
+              Login
+            </Link>
+          )}
         </div>
       </header>
 
       {/* Content */}
       <main className="px-5 pb-28 space-y-4">
-        <a href="/login" className="btn btn-ghost w-full text-center">
+        <Link href="/login" className="btn btn-ghost w-full text-center">
           Go to Login
-        </a>
+        </Link>
         {/* Search */}
         <div className="flex items-center gap-2">
           <div className="flex-1 flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-3">
