@@ -10,6 +10,7 @@ import {
   Cog6ToothIcon,
 } from "@heroicons/react/24/solid";
 import { useAuth } from "@/providers/AuthProvider";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 type IdentifyResult = {
   name: string;
@@ -22,19 +23,23 @@ type IdentifyResult = {
 export default function Home() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IdentifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  // Redirect to login if not authenticated (client-side fallback)
+  useEffect(() => {
+    if (!authLoading && !session) {
+      router.push(`/login?redirectedFrom=${encodeURIComponent("/")}`);
+    }
+  }, [authLoading, session, router]);
 
   const onPickImage = () => fileRef.current?.click();
 
-  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError(null);
-    setLoading(true);
-    try {
+  const { mutate, status } = useMutation<IdentifyResult, Error, File>({
+    mutationFn: async (file: File) => {
       const b64 = await fileToBase64(file);
       const res = await fetch("/api/identify", {
         method: "POST",
@@ -43,13 +48,24 @@ export default function Home() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al identificar");
+      return data as IdentifyResult;
+    },
+    onSuccess(data: IdentifyResult) {
       setResult(data);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
+      // Invalidate any queries that might depend on identification results
+      qc.invalidateQueries({ queryKey: ["identify"] });
+    },
+    onError(err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    },
+  });
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setResult(null);
+    mutate(file);
   };
 
   return (
@@ -119,7 +135,7 @@ export default function Home() {
         </div>
 
         {/* Result card */}
-        {loading && (
+        {status === "pending" && (
           <div className="card p-4 animate-pulse">
             <div className="h-4 w-24 bg-black/10 rounded mb-2" />
             <div className="h-3 w-40 bg-black/10 rounded" />

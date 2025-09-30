@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bodoni_Moda, Roboto } from "next/font/google";
 import "@/app/globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 const bodoni = Bodoni_Moda({
   variable: "--font-bodoni",
@@ -32,7 +33,9 @@ export default function RootLayout({
       <body
         className={`${bodoni.variable} ${roboto.variable} antialiased bg-white`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

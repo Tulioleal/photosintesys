@@ -22,6 +22,16 @@ npm install
 npm run dev
 ```
 
+## Client data fetching
+
+This project now uses TanStack Query for client-side fetching and caching. Install it locally with:
+
+```bash
+npm install @tanstack/react-query
+```
+
+I added `src/providers/QueryProvider.tsx` and wrapped the app in it in `src/app/layout.tsx`. The identify flow in `src/app/page.tsx` now uses `useMutation`.
+
 ## Estilo (guidelines)
 
 - Colores: `#BFCBB8` (primario claro), `#48644B` (primario fuerte), `#9A5E39` (acento terracota)
