@@ -8,8 +8,8 @@ const BodySchema = z.object({ image: z.string().min(10) });
 const ResultSchema = z.object({
   name: z.string(),
   confidence: z.number().min(0).max(1),
-  description: z.string().optional(),
-  tips: z.array(z.string()).optional(),
+  description: z.string().optional().nullable(),
+  tips: z.array(z.string()).optional().nullable(),
 });
 
 export async function POST(req: NextRequest) {
