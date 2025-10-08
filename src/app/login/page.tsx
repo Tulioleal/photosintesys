@@ -3,35 +3,27 @@ import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { toast } from "react-toastify";
 
 export default function LoginPage() {
-  const { session, loading, signInWithEmail, signInWithProvider, signOut } =
+  const { session, loading, signInWithEmail, signInWithPassword, signOut } =
     useAuth();
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
 
-  const onEmailSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage(null);
-    setError(null);
     try {
-      await signInWithEmail(email);
-      setMessage("Check your email for the sign-in link");
+      if (password) {
+        await signInWithPassword(email, password);
+        toast.success("Signed in successfully!");
+      } else {
+        await signInWithEmail(email);
+        toast.success("Check your email for the sign-in link");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(msg ?? "Could not send magic link");
-    }
-  };
-
-  const onProvider = async (provider: "google" | "github") => {
-    setMessage(null);
-    setError(null);
-    try {
-      await signInWithProvider(provider);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg ?? "Could not sign in");
+      toast.error(msg ?? "Could not sign in");
     }
   };
 
@@ -71,7 +63,7 @@ export default function LoginPage() {
       </header>
 
       <main className="px-5 pb-28 space-y-6">
-        <form onSubmit={onEmailSubmit} className="space-y-3">
+        <form onSubmit={onSubmit} className="space-y-3">
           <input
             type="email"
             required
@@ -80,34 +72,25 @@ export default function LoginPage() {
             placeholder="you@example.com"
             className="input w-full"
           />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password (optional for magic link)"
+            className="input w-full"
+          />
           <button
             type="submit"
             disabled={loading}
             className="btn btn-primary w-full"
           >
-            {loading ? "Sending..." : "Send magic link"}
+            {loading
+              ? "Signing in..."
+              : password
+              ? "Sign in"
+              : "Send magic link"}
           </button>
         </form>
-
-        <div className="grid grid-cols-1 gap-3">
-          <button
-            onClick={() => onProvider("google")}
-            disabled={loading}
-            className="btn w-full"
-          >
-            Continue with Google
-          </button>
-          <button
-            onClick={() => onProvider("github")}
-            disabled={loading}
-            className="btn w-full"
-          >
-            Continue with GitHub
-          </button>
-        </div>
-
-        {message && <p className="text-sm text-emerald-600">{message}</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
       </main>
 
       <nav className="navbar">

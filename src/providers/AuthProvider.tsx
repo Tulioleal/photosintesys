@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { supabaseBrowser } from "../lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -11,7 +11,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   signInWithEmail: (email: string) => Promise<void>;
-  signInWithProvider: (provider: "google" | "github") => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -26,16 +26,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabaseBrowser.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session as Session | null);
       setInitializing(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session as Session | null);
-      setInitializing(false);
-    });
+    const { data: sub } = supabaseBrowser.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session as Session | null);
+        setInitializing(false);
+      }
+    );
 
     return () => {
       mounted = false;
@@ -56,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithEmail = async (email: string) => {
     setLoading(true);
     try {
-      await supabase.auth.signInWithOtp({
+      await supabaseBrowser.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo:
@@ -70,17 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithProvider = async (provider: "google" | "github") => {
+  const signInWithPassword = async (email: string, password: string) => {
     setLoading(true);
     try {
-      await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo:
-            typeof window !== "undefined"
-              ? `${window.location.origin}/login`
-              : undefined,
-        },
+      await supabaseBrowser.auth.signInWithPassword({
+        email,
+        password,
       });
     } finally {
       setLoading(false);
@@ -90,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      await supabaseBrowser.auth.signOut();
     } finally {
       setLoading(false);
     }
@@ -101,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     loading,
     signInWithEmail,
-    signInWithProvider,
+    signInWithPassword,
     signOut,
   };
 
