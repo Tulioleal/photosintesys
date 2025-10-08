@@ -1,37 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage } from "@langchain/core/messages";
-
-const BodySchema = z.object({ image: z.string().min(10) });
-
-const ResultSchema = z.object({
-  name: z.string(),
-  confidence: z.number().min(0).max(1),
-  description: z.string().optional().nullable(),
-  tips: z.array(z.string()).optional().nullable(),
-});
+import { PlantController } from "@/controllers/platController";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
+  // Apply rate limiting
+  const rateLimitResponse = rateLimit(req);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
-    const json = await req.json();
-    const { image } = BodySchema.parse(json);
+    const result = await PlantController.identifyPlant(req);
 
-    const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0 });
-    const structured = model.withStructuredOutput(ResultSchema, { name: "PlantRecognition" });
-
-    const result = await structured.invoke([
-      new HumanMessage({
-        content: [
-          { type: "text", text: "Identify the plant in the image. Return JSON with name (common or scientific), confidence (0-1), description and care tips." },
-          { type: "image_url", image_url: { url: image } },
-        ],
-      }),
-    ]);
-
-    return NextResponse.json({ ...result, imageUrl: image });
+    if (result.success) {
+      return NextResponse.json(result.data);
+    } else {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
   } catch (error: unknown) {
+    console.error("API Error:", error);
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
