@@ -1,50 +1,81 @@
 "use client";
-import { useRef, useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CameraIcon,
   MagnifyingGlassIcon,
   HomeIcon,
-  BellIcon,
   Cog6ToothIcon,
+  UserIcon,
 } from "@heroicons/react/24/solid";
 import { useAuth } from "@/providers/AuthProvider";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { ImageUpload } from "@/components/ImageUpload";
+import { PlantCard } from "@/components/PlantCard";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type IdentifyResult = {
   name: string;
   confidence: number;
   description?: string;
   tips?: string[];
-  imageUrl?: string;
+  image_url?: string;
+};
+
+type PlantAnalysis = {
+  id: number;
+  created_at: string;
+  image_url: string;
+  name: string;
+  confidence: number;
+  description?: string;
+  tips?: string[];
 };
 
 export default function Home() {
-  const fileRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<IdentifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { session, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
 
-  // Redirect to login if not authenticated (client-side fallback)
-  useEffect(() => {
-    if (!authLoading && !session) {
-      router.push(`/login?redirectedFrom=${encodeURIComponent("/")}`);
-    }
-  }, [authLoading, session, router]);
-
-  const onPickImage = () => fileRef.current?.click();
+  // Fetch user's recent analysis using React Query
+  const { data: analysis = [], isLoading: analysisLoading } = useQuery<
+    PlantAnalysis[]
+  >({
+    queryKey: ["analysis", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(
+        `/api/analysis?user_id=${encodeURIComponent(user.id)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to fetch analysis");
+      return (json.data as PlantAnalysis[]) ?? [];
+    },
+    enabled: Boolean(user?.id),
+  });
 
   const { mutate, status } = useMutation<IdentifyResult, Error, File>({
     mutationFn: async (file: File) => {
       const b64 = await fileToBase64(file);
+      if (!user?.id) {
+        router.push("/login");
+        throw new Error("Not authenticated");
+      }
       const res = await fetch("/api/identify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: b64 }),
+        body: JSON.stringify({ image: b64, user_id: user.id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al identificar");
@@ -60,18 +91,13 @@ export default function Home() {
     },
   });
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError(null);
-    setResult(null);
-    mutate(file);
-  };
-
   return (
     <div className="min-h-dvh grid grid-rows-[auto_1fr_auto] bg-white">
       {/* Top bar */}
-      <header className="px-5 pt-8 pb-4 flex items-center gap-3 justify-between">
+      <header
+        className="px-5 pt-8 pb-4 flex items-center gap-3 justify-between"
+        role="banner"
+      >
         <div className="flex items-center gap-3">
           <div className="size-8 rounded-full bg-[var(--color-primary-100)]" />
           <div>
@@ -83,14 +109,22 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <div>
-          {session ? (
-            <Link
-              href="/login"
-              className="text-sm text-[var(--color-primary-700)]"
-            >
-              Account
-            </Link>
+        <div className="flex items-center gap-3">
+          {user ? (
+            <>
+              <Link href="/dashboard">
+                <Button variant="ghost" size="sm">
+                  <UserIcon className="w-4 h-4 mr-2" />
+                  My Plants
+                </Button>
+              </Link>
+              <Link
+                href="/login"
+                className="text-sm text-[var(--color-primary-700)]"
+              >
+                Account
+              </Link>
+            </>
           ) : (
             <Link
               href="/login"
@@ -103,88 +137,131 @@ export default function Home() {
       </header>
 
       {/* Content */}
-      <main className="px-5 pb-28 space-y-4">
-        <Link href="/login" className="btn btn-ghost w-full text-center">
-          Go to Login
-        </Link>
+      <main className="px-5 pb-28 space-y-4" role="main">
+        {!user && (
+          <Link href="/login" className="block">
+            <Button variant="outline" className="w-full">
+              Login to Save Your Plants
+            </Button>
+          </Link>
+        )}
+
         {/* Search */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="search">
           <div className="flex-1 flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-3">
-            <MagnifyingGlassIcon className="size-5 text-[var(--color-primary-600)]" />
-            <input
+            <MagnifyingGlassIcon
+              className="size-5 text-[var(--color-primary-600)]"
+              aria-hidden="true"
+            />
+            <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              className="flex-1 outline-none text-sm"
+              placeholder="Search plants..."
+              className="border-0 p-0 h-auto focus-visible:ring-0"
+              aria-label="Search for plants"
             />
           </div>
-          <button
-            onClick={onPickImage}
-            className="btn btn-primary whitespace-nowrap"
-          >
-            <CameraIcon className="size-5 mr-2" /> Identify
-          </button>
-          <input
-            ref={fileRef}
-            accept="image/*"
-            type="file"
-            capture="environment"
-            hidden
-            onChange={onFileChange}
-          />
         </div>
 
-        {/* Result card */}
+        {/* Image Upload */}
+        <ImageUpload
+          onImageSelect={(file) => {
+            setError(null);
+            setResult(null);
+            mutate(file);
+          }}
+          loading={status === "pending"}
+        />
+
+        {/* Result */}
         {status === "pending" && (
-          <div className="card p-4 animate-pulse">
-            <div className="h-4 w-24 bg-black/10 rounded mb-2" />
-            <div className="h-3 w-40 bg-black/10 rounded" />
+          <div className="animate-pulse">
+            <div className="h-48 bg-gray-200 rounded-lg mb-4" />
+            <div className="space-y-2">
+              <div className="h-6 w-32 bg-gray-200 rounded" />
+              <div className="h-4 w-24 bg-gray-200 rounded" />
+            </div>
           </div>
         )}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
         {result && (
-          <article className="card overflow-hidden">
-            {result.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={result.imageUrl}
-                alt={result.name}
-                className="w-full h-48 object-cover"
-              />
-            )}
-            <div className="p-4 space-y-2">
-              <h2 className="font-display text-xl">{result.name}</h2>
-              <p className="text-xs text-neutral-500">
-                Confidence: {(result.confidence * 100).toFixed(0)}%
-              </p>
-              {result.description && (
-                <p className="text-sm leading-relaxed">{result.description}</p>
-              )}
-              {result.tips && result.tips.length > 0 && (
-                <div>
-                  <h3 className="font-display text-lg mb-1">Care tips</h3>
-                  <ul className="list-disc pl-5 text-sm space-y-1">
-                    {result.tips.map((t, i) => (
-                      <li key={i}>{t}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          <PlantCard
+            name={result.name}
+            confidence={result.confidence}
+            description={result.description}
+            tips={result.tips}
+            image_url={result.image_url}
+          />
+        )}
+
+        {/* Recent Analysis */}
+        {analysisLoading && (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-48 bg-gray-200 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {analysis.length === 0 && !analysisLoading && user && (
+          <div className="text-center py-8">
+            <p className="text-sm text-neutral-500 mb-4">
+              No plants identified yet. Upload a photo to get started!
+            </p>
+          </div>
+        )}
+
+        {analysis.length > 0 && (
+          <section>
+            <h3 className="font-display text-lg mb-4">Recent Plants</h3>
+            <div className="grid grid-cols-1 gap-4">
+              {analysis.slice(0, 5).map((a: PlantAnalysis) => (
+                <PlantCard
+                  key={a.id}
+                  name={a.name || "Unknown Plant"}
+                  confidence={Number(a.confidence) || 0}
+                  description={a.description}
+                  tips={a.tips}
+                  image_url={a.image_url}
+                />
+              ))}
             </div>
-          </article>
+            {analysis.length > 5 && (
+              <div className="text-center mt-4">
+                <Link href="/dashboard">
+                  <Button variant="outline">
+                    View All Plants ({analysis.length})
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </section>
         )}
       </main>
 
       {/* Bottom navigation */}
-      <nav className="navbar">
+      <nav className="navbar" role="navigation" aria-label="Main navigation">
         <div className="grid grid-cols-4 gap-2 px-6 py-3">
           <NavItem icon={<HomeIcon className="size-6" />} label="Home" active />
-          <NavItem
-            icon={<CameraIcon className="size-6" />}
-            label="Identify"
-            onClick={onPickImage}
-          />
-          <NavItem icon={<BellIcon className="size-6" />} label="Reminders" />
+          <NavItem icon={<CameraIcon className="size-6" />} label="Identify" />
+          {user ? (
+            <Link href="/dashboard">
+              <NavItem
+                icon={<UserIcon className="size-6" />}
+                label="My Plants"
+              />
+            </Link>
+          ) : (
+            <Link href="/login">
+              <NavItem icon={<UserIcon className="size-6" />} label="Login" />
+            </Link>
+          )}
           <NavItem
             icon={<Cog6ToothIcon className="size-6" />}
             label="Settings"

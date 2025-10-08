@@ -3,6 +3,8 @@ import { Bodoni_Moda, Roboto } from "next/font/google";
 import "@/app/globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const bodoni = Bodoni_Moda({
   variable: "--font-bodoni",
@@ -36,6 +38,7 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>{children}</AuthProvider>
         </QueryProvider>
+        <ToastContainer />
       </body>
     </html>
   );
